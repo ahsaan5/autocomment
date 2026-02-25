@@ -1,0 +1,15 @@
+[Unit]
+Description=Facebook Comment Auto-Responder API
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/autocomment
+EnvironmentFile=/opt/autocomment/.env
+ExecStart=/opt/autocomment/.venv/bin/gunicorn app.main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers 2 --timeout 60
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
