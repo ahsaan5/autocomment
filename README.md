@@ -53,6 +53,60 @@ uvicorn app.main:app --reload --port 8000
 
 The app listens for `feed` changes where `item == comment`, creates a reply from your KB, and posts back using the Graph API.
 
+
+## Testing
+
+### Automated tests
+
+```bash
+python -m pytest -q
+```
+
+### Manual local API test
+
+1. Start the app:
+
+```bash
+uvicorn app.main:app --reload --port 8000
+```
+
+2. Upload a TXT knowledge file:
+
+```bash
+curl -X POST http://127.0.0.1:8000/knowledge/upload-txt \
+  -F "file=@faq.txt"
+```
+
+3. Add website knowledge:
+
+```bash
+curl -X POST http://127.0.0.1:8000/knowledge/add-url \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://example.com/faq"}'
+```
+
+4. Simulate a Facebook comment webhook event:
+
+```bash
+curl -X POST http://127.0.0.1:8000/webhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "object":"page",
+    "entry":[{
+      "changes":[{
+        "field":"feed",
+        "value":{
+          "item":"comment",
+          "comment_id":"123_456",
+          "message":"How long is shipping?"
+        }
+      }]
+    }]
+  }'
+```
+
+If `FB_PAGE_ACCESS_TOKEN` is not set, webhook processing still runs but posting to Facebook will fail with a logged error (expected for local dry-runs).
+
 ## Facebook setup notes
 
 1. Create a Meta app and add the **Webhooks** product.
