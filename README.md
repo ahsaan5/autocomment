@@ -13,7 +13,15 @@ This app receives Facebook Page comment webhooks and auto-replies using a knowle
 - Simple built-in lexical retrieval for relevant context
 - Optional OpenAI-powered response generation (fallback to template when no API key)
 
-## Quick start
+## Quick start (local)
+
+```bash
+./scripts/run_local.sh
+```
+
+This helper script creates `.venv`, installs dependencies, and launches the app on `0.0.0.0:${PORT:-8000}`.
+
+## Manual local start
 
 ```bash
 python -m venv .venv
@@ -28,6 +36,8 @@ uvicorn app.main:app --reload --port 8000
 - `FB_PAGE_ACCESS_TOKEN` - page access token used to post replies
 - `OPENAI_API_KEY` - optional, enables better reply generation
 - `OPENAI_MODEL` - optional model name (default: `gpt-4o-mini`)
+
+Copy `.env.example` to `.env` and fill real values for deployment.
 
 ## API
 
@@ -52,7 +62,6 @@ uvicorn app.main:app --reload --port 8000
 `POST /webhook`
 
 The app listens for `feed` changes where `item == comment`, creates a reply from your KB, and posts back using the Graph API.
-
 
 ## Testing
 
@@ -106,6 +115,57 @@ curl -X POST http://127.0.0.1:8000/webhook \
 ```
 
 If `FB_PAGE_ACCESS_TOKEN` is not set, webhook processing still runs but posting to Facebook will fail with a logged error (expected for local dry-runs).
+
+## Production launch (Ubuntu + systemd + Nginx)
+
+1. Clone app on server:
+
+```bash
+sudo mkdir -p /opt/autocomment
+sudo chown -R $USER:$USER /opt/autocomment
+git clone <your-repo-url> /opt/autocomment
+cd /opt/autocomment
+```
+
+2. Prepare runtime:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# edit .env with real tokens
+```
+
+3. Install and start systemd service:
+
+```bash
+sudo cp deploy/systemd/autocomment.service /etc/systemd/system/autocomment.service
+sudo systemctl daemon-reload
+sudo systemctl enable autocomment
+sudo systemctl start autocomment
+sudo systemctl status autocomment --no-pager
+```
+
+4. Configure Nginx reverse proxy:
+
+```bash
+sudo cp deploy/nginx/autocomment.conf /etc/nginx/sites-available/autocomment
+sudo ln -s /etc/nginx/sites-available/autocomment /etc/nginx/sites-enabled/autocomment
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+5. Add HTTPS (required by Meta webhooks):
+
+```bash
+sudo apt-get update && sudo apt-get install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d YOUR_DOMAIN
+```
+
+6. In Meta app webhook config:
+- Callback URL: `https://YOUR_DOMAIN/webhook`
+- Verify token: same value as `FB_VERIFY_TOKEN`
 
 ## Facebook setup notes
 
